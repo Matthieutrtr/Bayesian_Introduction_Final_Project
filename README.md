@@ -7,7 +7,7 @@ You can find the complete subject on the "Final_Project_Subject.pdf" document.
 
 2 envisaged priors on the parameter $p \in ]0,1[$
 
-- Model A : discrete law defined by | i | $b_i$ | $\mathbb{P}(p = b_i) |
+- Model A : discrete law defined by | i | $b_i$ | $\mathbb{P}(p = b_i)$ |
                                     |:---:|:-------:|:----------------------:|
                                     |1  | 0.05  | 0.03                 |
                                     |2  | 0.15  | 0.18                 |
