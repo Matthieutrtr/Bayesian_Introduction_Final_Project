@@ -1,2 +1,6 @@
 # Bayesian_Introduction_Final_Project
+<<<<<<< HEAD
 *.Rmd linguist-language=R
+=======
+.rmd linguist-language=R
+>>>>>>> 39f9fb8d7f442b545834d96614a8c1c8d05e8b50
