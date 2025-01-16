@@ -1,0 +1,545 @@
+---
+title: "Introduction à la statistique bayésienne"
+subtitle: "TP - Exercice 10"
+author: "Matthieu TROTREAU"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    fig_caption: yes
+    toc: true
+header-includes: \usepackage{float} \floatplacement{figure}{H}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, results="hold", fig.pos = 'H', fig.height = 4, fig.width=9)
+
+library(scales)
+library(latex2exp)
+```
+
+\newpage
+
+# Introduction
+
+On veut estimer la proportion $p$ d'étudiants qui dorment plus de 8 heures par nuit. Les observations sur un échantillon de 27 éudiants sont : 
+s = 11 étudiants dorment plus de 8 heures
+f = 16 étudiants dorment moins de 8 heures.
+
+On note S la variable aléatoire qui représente le nombre d'étudiants qui dorment plus de 8 heures dans un échantillon de taille $n=27$. On va comparer les résultats de 3 modèles différents donnés par leur loi a priori.
+
+# Comparaison des 3 modèles bayésiens
+
+## Représentations graphiques des lois a priori
+
+```{r modele_A_prior_plot, echo = FALSE, fig.cap="\\label{fig:modele_A_prior_plot}Représentation de la loi a priori du modèle A"}
+
+n = 1000
+supp_modA = seq.int(from = 0.05, to = 0.65, by = 0.1)
+poids_modA = c(0.03, 0.18, 0.28, 0.25, 0.16, 0.07, 0.03)
+
+real_modA = sample(supp_modA,size =n, prob = poids_modA, replace = T)
+prob_modA = table(real_modA)/1000
+
+
+plot(prob_modA, col = "red",
+     xlab = TeX('$b_{i}$'),
+     ylab = TeX('$P(p = b_{i})$'))
+```
+
+
+
+```{r modèle_B_C_prior_plot,echo = FALSE, fig.cap="\\label{fig:modèle_B_C_prior_plot}Représentation des lois a priori pour les modèles B et C"}
+
+quant = seq.int(from = 0.0001, to= 0.9999, length.out = 1000)
+dens_modB = dbeta(quant, shape1 = 3.4, shape2 = 7.4)
+plot(quant,dens_modB, col = "blue", type = "l",
+     xlab = "p",
+     ylab = TeX("\\pi(p)"))
+
+dens_modC = dbeta(quant, shape1 = 1/2, shape2 = 1/2)
+lines(quant, dens_modC, col = "purple", type = "l")
+
+legend(0.5, 2.5,legend = c("loi a priori Modèle B", "loi a priori Modèle C"), fill = c("blue", "purple"), box.lty = 2)
+
+```
+
+## Moyennes et variances des lois a priori
+
+On calcule la moyenne de la loi a priori du premier modèle a l'aide de la formule suivante : $$ \sum_{i=1}^{7}b_{i}\mathbb{P}(p=b_{i})$$
+
+Pour les modèles B et C on sait que ces lois a priori sont des lois beta de paramètres respectifs $(3.4, 7.4)$ et $(\frac{1}{2},\frac{1}{2})$
+
+```{r}
+a_modB = 3.4
+b_modB = 7.4
+
+a_modC = 1/2
+b_modC = 1/2
+
+mean_modA = sum(supp_modA*poids_modA)
+mean_modB = a_modB/(a_modB + b_modB)
+mean_modC = a_modC/(a_modC + b_modC)
+
+var_modA = var(real_modA)
+var_modB = (a_modB*b_modB)/((a_modB+b_modB)**2*(a_modB+b_modB+1))
+var_modC = (a_modC*b_modC)/((a_modC+b_modC)**2*(a_modC+b_modC+1))
+
+
+```
+
+Le modèle A a pour moyenne `r mean_modA` et pour variance `r var_modA`.
+Le modèle B a pour moyenne `r mean_modB` et pour variance `r var_modB`.
+Le modèle C a pour moyenne `r mean_modC` et pour variance `r var_modC`.
+
+Les moyennes et variances des modèles A et B sont proches, on peut donc dire que ces deux modèles apportent des informations a priori similaires. De plus la variance de ces deux modèles étant proche de 0 on peut dire qu'en utilisant ces lois a priori on fait confiance à l'information qu'elles apportent. \
+
+Le modèle C quant à lui possède une moyenne plus élevée, de même pour sa variance. On considère donc que l'on fait moins confiance à l'information de cette loi a priori. Ce qui fait écho au choix d'une loi a priori non informative pour ce dernier modèle.\
+
+## Marginales des différents modèles
+
+L'expresion de la marginale du modèle A est la suivante : $$ \mathbb{P}(S = s) = \sum_{i=1}^{7} \mathbb{P}(p=b_{i})\binom{27}{s}b_{i}^{s}(1 - b_{i})^{27 - s} $$
+
+Les modèles B et C admettant des lois $\beta(a,b)$ en lois a priori la marginale est donnée est par l'expression suivante : $$ \mathbb{P}(S = s) = \binom{27}{s} \int_{0}^{1}\frac{p^{a - 1}(1 - p)^{b + 27 - s - 1}}{\beta(a,b)}dp $$
+
+```{r}
+#Marginale modèle A 
+
+probS_modA_marg = function(s){
+  bi = supp_modA
+  part_binom = choose(27,s)*(bi**s)*((1-bi)**(27-s))
+  part_prio = poids_modA
+  prob_marg = sum(part_prio*part_binom)
+  return(prob_marg)
+}
+
+marg_mod_A_value = probS_modA_marg(11)
+
+
+probS_modB_marg_int = function(p){
+  val_int = dbeta(p, 3.4, 7.4)*dbinom(11,27,p)
+  return(val_int)
+}
+
+marg_mod_B = integrate(f = probS_modB_marg_int,0,1)
+marg_mod_B_value = marg_mod_B$value
+
+probS_modC_marg_int = function(p){
+  val_int = dbeta(p, 1/2, 1/2)*dbinom(11,27,p)
+  return(val_int)
+}
+
+marg_mod_C = integrate(f = probS_modC_marg_int,0,1)
+marg_mod_C_value = marg_mod_C$value
+
+Bayes_A_B =  marg_mod_A_value/marg_mod_B_value
+Bayes_B_C =  marg_mod_B_value/marg_mod_C_value
+Bayes_A_C =  marg_mod_A_value/marg_mod_C_value
+
+```
+
+On obtient les facteurs de Bayes suivants : $B_{A/B} =$ `r Bayes_A_B` , $B_{B/C} =$ `r Bayes_B_C` , $B_{A/C} =$ `r Bayes_A_C`.
+
+Les facteurs de Bayes nous permettant de comparer les 3 modèles on peut dire que les modèles A et B sont extrèmement proches. On donnera un léger avantage au modèle B. De plus le modèle C est considéré moins bon que les deux autres, ce modèle est dit moins vraisemblable.
+
+# Lois a posteriori
+
+La loi a posteriori du modèle A est donnée par l'expression exacte suivante : $$ \mathbb{P}(p = b_{i} | S = s) = \frac{\mathbb{P}(p=b_{i})\binom{27}{s}b_{i}^{s}(1 - b_{i})^{27 - s}}{\sum_{k=1}^{7} \mathbb{P}(p=b_{k})\binom{27}{s}b_{k}^{s}(1 - b_{k})^{27 - s}} $$
+
+Dans le cas de notre experience on sait que $S = 11$.
+
+Ensuite on peut déterminer l'expression exacte de la loi a posteriori pour les modèles B et C, cette expression faisant intervenir la densité de la marginale. Cependant on dira seulement que les lois a posteriori de ces deux modèles sont des lois $\beta(a+s, b+27-s)$ avec $a$ et $b$ les paramètres des lois a priori.
+
+```{r}
+num_post_A = choose(27,11)*(supp_modA**11)*((1-supp_modA)**(27-11))*poids_modA
+loi_post_A = num_post_A/marg_mod_A_value
+
+# loi_post_A[i] est la proba que p = poids_modA[i]
+```
+
+```{r}
+POST_B = function(p){
+  post_B = (dbinom(11, 27,p)*dbeta(p, 3.4, 7.4))/marg_mod_B_value
+  return(post_B)
+}
+supp_mod_B = seq.int(from = 0, to = 1, length.out = 100)
+loi_post_B = POST_B(supp_mod_B)
+```
+
+```{r}
+POST_C = function(p){
+  post_C = (dbinom(11, 27,p)*dbeta(p, 1/2, 1/2))/marg_mod_C_value
+  return(post_C)
+}
+
+loi_post_C = POST_C(supp_mod_B)
+```
+
+```{r fig.cap="Représentation loi a priori et loi a posteriori pour le modèle A"}
+
+N = 10000
+real_modA_post = sample(supp_modA,size =N, prob = loi_post_A, replace = T)
+real_modA_post = table(real_modA_post)/N
+
+
+#plot(supp_modA, loi_post_A, type = "h", col = alpha("red", 0.6))
+plot(prob_modA, col = alpha("green", 0.6), ylim = c(0,0.5),
+     xlab = TeX("$b_{i}$"),
+     ylab = TeX("prob"))
+lines(real_modA_post, col = alpha("red", 0.6))
+legend(0.4, 0.48,legend = c("Loi a posteriori Modèle A", "loi a priori Modèle A"), fill = c("red", "green"), box.lty = 2)
+
+
+```
+
+```{r fig.cap="Représentation loi a priori et loi a posteriori pour le modèle B"}
+
+plot(supp_mod_B,loi_post_B, col = "orange", type = "l",
+     xlab = "p",
+     ylab = "density")
+lines(quant, dens_modB, col = "blue", type = "l")
+legend(0.5, 5,legend = c("loi a priori Modèle B", "loi a posteriori Modèle B"), fill = c("blue", "orange"), box.lty = 2)
+
+```
+
+```{r fig.cap="Représentation loi a priori et loi a posteriori pour le modèle C"}
+
+plot(supp_mod_B,loi_post_C, col = "red", type = "l",
+     xlab = "p",
+     ylab = "density")
+
+
+lines(quant, dens_modC, col = "purple", type = "l")
+legend(0.54, 3.5,legend = c("loi a priori Modèle C", "loi a posteriori Modèle C"), fill = c("purple", "red"), box.lty = 2)
+
+
+```
+
+On a évoqué précédemment que les lois a posteriori des modèles B et C sont des lois beta dont on connaît les paramètres. On applique donc les formules connues de l'espérance et la variance pour des lois beta. 
+La moyenne et la variance du modèle A sont déterminées à l'aide des expressions classiques pour les loi discrètes.
+
+```{r}
+a_post_modB = a_modB + 11
+b_post_modB = b_modB + 16
+ 
+a_post_modC = a_modC + 11
+b_post_modC = b_modC + 16
+
+mean_post_A = sum(supp_modA*loi_post_A)
+mean_post_B = (a_post_modB)/(b_post_modB)
+mean_post_C = (a_post_modC)/(b_post_modC)
+
+var_post_A = sum((supp_modA**2)*loi_post_A) - mean_post_A**2
+var_post_B = (a_post_modB)/(b_post_modB**2)
+var_post_C = (a_post_modC)/(b_post_modC**2)
+
+```
+
+On a les résultats suivants $\mu$($\sigma^2$) :\
+Modèle A : `r mean_post_A` (`r var_post_A`)\
+Modèle B : `r mean_post_B` (`r var_post_B`)\
+Modèle C : `r mean_post_C` (`r var_post_C`)\
+
+
+Pour les lois a posteriori, les modèles B et C sont proches au niveau de la moyenne, le modèle A quant à lui s'éloigne des deux autres. On observe le même phénomène avec la variance du modèle A qui est très faible par rapport aux deux autres modèles. Mais on a la variance du modèle C $1.6$ fois supérieure à celle du B. 
+
+On rappelle que l'on avait observé des résultats similaires pour les modèles A et B sur les lois a priori. Pour les lois a posteriori ce sont cette fois-ci les modèles B et C qui sont proches.
+
+# Régions de confiance bayésiennes pour le paramètre p
+
+## Modèle a priori A
+
+```{r echo = TRUE}
+loi_post_A_ordered = loi_post_A[order(loi_post_A, decreasing = T)]
+cumsum_post_A = cumsum(loi_post_A_ordered)
+cumsum_post_A
+```
+
+On remarque que 94% de la probabilité se concentre sur les 3 valeurs les plus probables parmi 7. On atteint 99% avec la 4e valeur. On doit donc décider d'inclure, ou non, cette 4e valeur. À première vue, une région dont la probabilité d'appartenance du paramètre est de 0.99 paraît une bonne idée. Cependant cette 4e valeur représenterait environ 5% des 99% tandis que le reste serait concentré sur les 3 autres valeurs. Chosir cette région de niveau $1 - 0.99$ reviendrait à exclure les 3 valeurs dont la probabilité est proche de 0 mais en conserver une dont la probabilité est d'environ 0.05. Je préfère donc conserver une région HPD de niveau exact `r cumsum_post_A[3]*100`%  qui contient seulement les valeurs de réalisations les plus pertinentes.
+
+```{r}
+R_HPD_modA = supp_modA[order(loi_post_A, decreasing = T)[1:3]]
+```
+
+
+```{r fig.cap = "Représentation de la loi a posteriori avec la région HPD pour le modèle A"}
+
+plot(real_modA_post, col = "red",
+     xlab = TeX("$b_{i}$"),
+     ylab = TeX("$P(p = b_{i} | S = s)$"))
+points(x = R_HPD_modA, y = c(0,0,0), col = "blue")
+```
+
+La région HPD est représentée par les cercles au niveau de l'axe des abscisses.
+
+## Modèle a priori B
+
+```{r fig.cap = "Représentation de la longueur de la région HPD selon $\\beta$ pour le modèle B, avec $\\alpha = 0.05$"}
+alpha = 0.05
+beta = seq.int(from = 0, to = alpha, length.out = 1000)
+long_B = qbeta(1 - alpha +  beta, a_post_modB, b_post_modB) - qbeta(beta, a_post_modB, b_post_modB)
+plot(beta,long_B, type = "l", col = "red",
+     xlab = TeX("$\\beta$"),
+     ylab = TeX("$q(1 - \\alpha + \\beta) - q(\\beta)$"))
+beta_opti_B = beta[which.min(long_B)]
+points(x = beta_opti_B, y = long_B[which.min(long_B)], col = "blue", pch = 16)
+
+R_HPD_modB = c(qbeta(beta_opti_B,a_post_modB,b_post_modB), qbeta(1 - alpha + beta_opti_B,a_post_modB,b_post_modB))
+
+```
+
+On trouve un $\beta$ optimal égal à `r beta_opti_B`.
+
+
+```{r fig.cap = "Densité de la loi a posteriori avec la région HPD pour le modèle B"}
+plot(supp_mod_B,loi_post_B, col = "orange", type = "l",
+     xlab = "p",
+     ylab = TeX("$\\pi(p|s)$"))
+abline(v = R_HPD_modB[1],lty='dashed', col = "brown")
+abline(v = R_HPD_modB[2],lty='dashed', col = "brown")
+
+```
+
+On a une loi a posteriori unimodale donc la région HPD coïncide avec le meilleur intervalle de crédibilité. Pour le modèle B cet intervalle est donc : [`r R_HPD_modB[1]` , `r R_HPD_modB[2]`].
+
+## Modèle a priori C
+
+```{r fig.cap = "Représentation de la longueur de la région HPD selon $\\beta$ pour le modèle C, avec $\\alpha = 0.05$"}
+
+alpha = 0.05
+beta = seq.int(from = 0, to = alpha, length.out = 1000)
+long_C = qbeta(1 - alpha +  beta, a_post_modC, b_post_modC) - qbeta(beta, a_post_modC, b_post_modC)
+plot(beta,long_C, type = "l", col = "blue",
+     xlab = TeX("$\\beta$"),
+     ylab = TeX("$q(1 - \\alpha + \\beta) - q(\\beta)$"))
+beta_opti_C = beta[which.min(long_C)]
+points(x = beta_opti_C, y = long_C[which.min(long_C)], col = "red", pch = 16)
+
+R_HPD_modC = c(qbeta(beta_opti_C,a_post_modC,b_post_modC), qbeta(1 - alpha + beta_opti_C,a_post_modC,b_post_modC))
+```
+
+On trouve un $\beta$ optimal égal à `r beta_opti_C`.
+
+
+```{r fig.cap = "Densité de la loi a posteriori avec la région HPD pour le modèle C"}
+
+plot(supp_mod_B,loi_post_C, col = "red", type = "l", 
+     xlab = "p",
+     ylab = TeX("$\\pi(p|s)$"))
+
+
+abline(v = R_HPD_modC[1],lty='dashed', col = "brown")
+abline(v = R_HPD_modC[2],lty='dashed', col = "brown")
+```
+
+Pour le modèle C la région HPD est donc : [`r R_HPD_modC[1]` , `r R_HPD_modC[2]`].
+
+## Conclusion
+
+On a deux régions HPD similaires pour les modèles B et C. Cependant la plus courte est celle du modèle B. De plus, les 3 valeurs de la région HPD pour le modèle A appartiennent aux régions HPD des deux autres modèles. Du fait d'une région HPD plus courte on pourrait choisir de favoriser le modèle B ici aussi.
+On notera donc que le modèle B paraît meilleur au niveau des facteurs de Bayes ainsi que des régions HPD.
+
+# Prévision
+
+## Modèle a priori B
+
+On a une loi a posteriori qui correspond à une $\beta(a + s,b + 27 - s)$.
+Les fonctions $a(S)$ et $b(S)$ sont donc les suivantes : 
+$a(S) = a + S$ ,
+$b(S) = b + 27 - S$ ,
+avec a et b les paramètres de la loi Beta a priori. En l'occurence pour le modèle B on a $a = 3.4$ et $b = 7.4$.
+
+On justifie cet algorithme à l'aide de l'expression suivante : 
+$$ \pi(s^{*} | s)=\int_{0}^{1}f(s^* | p) \pi(p | s) dp$$
+En effet, on a une seule observation de S on peut alors considérer que "l'ensemble" de nos observations est iid selon $\pi( . | p)$. Ceci implique que $\pi(s^*|p,s)=f(s^*|p)$, ce qui nous ramène à l'expression précédente de $\pi(s^{*} | s)$.
+
+```{r}
+a_S = function(a,S){return(a + S)}
+b_S = function(b,S){return(b+27-S)}
+```
+
+```{r}
+algo_pred1 = function(a,b,S){
+  p = rbeta(1, a_S(a,S), b_S(b,S))
+  s_star = rbinom(1, 20, p)
+  return(s_star)
+}
+```
+
+On choisit $M = 10000$ afin d'avoir une certaine stabilité au niveau de la simulation. En effet les valeurs des probabilités pour $s^*$ dans {6,7,8,9} étant relativement proches on peut avoir des répartitions assez différentes pour plusieurs simulations si M n'est pas pris suffisamment grand.
+
+```{r fig.cap = "Représentation de la loi prédictive pour le modèle B"}
+M = 10000
+
+Prev_Mod_B = replicate(M, algo_pred1(3.4, 7.4, 11))
+
+table_prev_Mod_B = table(Prev_Mod_B)/M
+plot(table_prev_Mod_B, col = "purple",
+     xlab = TeX("$s^*$"),
+     ylab = TeX("$P(S^*=s^*|s)$"))
+```
+
+```{r echo = TRUE}
+table_prev_Mod_B_ordered = table_prev_Mod_B[order(table_prev_Mod_B, decreasing = T)]
+cumsum_prev_B = cumsum(table_prev_Mod_B_ordered)
+cumsum_prev_B
+```
+On choisit de conserver un niveau exact de `r cumsum_prev_B[which(cumsum_prev_B > 0.95)[1]]*100`% de manière à obtenir une probabilité d'appartenance au moins égale à 0.95. La somme cumulée atteignant cette fois-ci `r cumsum_prev_B[which(cumsum_prev_B > 0.95)[1]]` et non près de 0.99 comme précédemment.
+
+```{r}
+R_HPD_prevB = table_prev_Mod_B[order(table_prev_Mod_B, decreasing = T)[1:which(cumsum_prev_B > 0.95)[1]]]
+R_HPD_prevB = as.data.frame(R_HPD_prevB, stringsAsFactors = F)
+indices_prevB = as.numeric(R_HPD_prevB$Prev_Mod_B)
+```
+
+```{r fig.cap = "Représentation de la loi prédictive avec sa région HPD pour le modèle B"}
+ZEROS_B = matrix(0, nrow = 1, ncol = length(c(1:which(cumsum_prev_B > 0.95)[1])))
+plot(table_prev_Mod_B, col = "purple",
+     xlab = TeX("$s^*$"),
+     ylab = TeX("$P(S^*=s^*|S = s)$"))
+points(x = indices_prevB, y = ZEROS_B, col = "orange")
+```
+
+
+```{r echo = TRUE}
+table_prev_Mod_B_DF = as.data.frame(table_prev_Mod_B, stringsAsFactors = F)
+supp_prev_Mod_B = as.numeric(table_prev_Mod_B_DF$Prev_Mod_B)
+
+Best_pred_ponct_modB = sum(supp_prev_Mod_B*table_prev_Mod_B_DF$Freq)
+```
+
+La meilleure approximation du prédicteur ponctuel pour l'erreur $L^{2}$ est égale à $\mathbb{E}[S^{*}|S]$ qui correspond donc à l'espérance de notre loi prédictive. Pour le modèle B on a $\hat{S^*} =$ `r Best_pred_ponct_modB`.
+
+## Modèle a priori C
+
+Les fonctions $a(S)$ et $b(S)$ sont les mêmes que précédemment, avec $a = b = \frac{1}{2}$.
+
+```{r fig.cap = "Représentation de la loi prédictive pour le modèle C"}
+
+Prev_Mod_C = replicate(M, algo_pred1(1/2, 1/2, 11))
+
+table_prev_Mod_C = table(Prev_Mod_C)/M
+plot(table_prev_Mod_C, col = "red",
+     xlab = TeX("$s^*$"),
+     ylab = TeX("$P(S^*=s^*|S = s)$"))
+```
+
+```{r echo = TRUE}
+table_prev_Mod_C_ordered = table_prev_Mod_C[order(table_prev_Mod_C, decreasing = T)]
+cumsum_prev_C = cumsum(table_prev_Mod_C_ordered)
+cumsum_prev_C
+```
+
+On obtient une région HPD exactement de niveau `r cumsum_prev_C[which(cumsum_prev_C > 0.95)[1]]*100`% pour ce modèle.
+
+```{r}
+R_HPD_prevC = table_prev_Mod_C[order(table_prev_Mod_C, decreasing = T)[1:which(cumsum_prev_C > 0.95)[1]]]
+R_HPD_prevC = as.data.frame(R_HPD_prevC, stringsAsFactors = F)
+indices_prevC = as.numeric(R_HPD_prevC$Prev_Mod_C)
+```
+
+```{r fig.cap = "Représentation de la loi prédictive avec sa région HPD pour le modèle C"}
+ZEROS_C = matrix(0, nrow = 1, ncol = length(c(1:which(cumsum_prev_C > 0.95)[1])))
+plot(table_prev_Mod_C, col = "red",
+     xlab = TeX("$s^*$"),
+     ylab = TeX("$P(S^*=s^*|S = s)$"))
+points(x = indices_prevC, y = ZEROS_C, col = "orange")
+```
+
+```{r echo = TRUE}
+table_prev_Mod_C_DF = as.data.frame(table_prev_Mod_C, stringsAsFactors = F)
+supp_prev_Mod_C = as.numeric(table_prev_Mod_C_DF$Prev_Mod_C)
+
+Best_pred_ponct_modC = sum(supp_prev_Mod_C*table_prev_Mod_C_DF$Freq)
+```
+
+Pour le modèle C on a $\hat{S^*} =$ `r Best_pred_ponct_modC`.
+
+## Modèle a priori A
+
+Pour le modèle a priori A la loi a posteriori déterminée n'étant pas une loi Beta il nous faut modifier l'algorithme au niveau de la génération de p.
+
+```{r}
+algo_pred2 = function(){
+  p = sample(supp_modA,size =1, prob = loi_post_A, replace = T)
+  s_star = rbinom(1, 20, p)
+  return(s_star)
+}
+```
+
+```{r fig.cap = "Représentation de la loi prédictive pour le modèle A"}
+
+Prev_Mod_A = replicate(M, algo_pred2())
+
+table_prev_Mod_A = table(Prev_Mod_A)/M
+plot(table_prev_Mod_A, col = "darkgreen",
+     xlab = TeX("$s^*$"),
+     ylab = TeX("$P(S^*=s^*|S = s)$"))
+```
+
+```{r echo = TRUE}
+table_prev_Mod_A_ordered = table_prev_Mod_A[order(table_prev_Mod_A, decreasing = T)]
+cumsum_prev_A = cumsum(table_prev_Mod_A_ordered)
+cumsum_prev_A
+```
+
+Comme pour les modèles B et C on choisit une probabilité d'appartenance du paramètre au moins égale à 0.95. Donc ici le niveau de notre région HPD est de niveau exact `r cumsum_prev_A[which(cumsum_prev_A > 0.95)[1]]*100`%
+
+```{r}
+R_HPD_prevA = table_prev_Mod_A[order(table_prev_Mod_A, decreasing = T)[1:which(cumsum_prev_A > 0.95)[1]]]
+R_HPD_prevA = as.data.frame(R_HPD_prevA, stringsAsFactors = F)
+indices_prevA = as.numeric(R_HPD_prevA$Prev_Mod_A)
+```
+
+```{r fig.cap = "Représentation de la loi prédictive avec sa région HPD pour le modèle A"}
+ZEROS_A = matrix(0, nrow = 1, ncol = length(c(1:which(cumsum_prev_A > 0.95)[1])))
+plot(table_prev_Mod_A, col = "darkgreen",
+     xlab = TeX("$s^*$"),
+     ylab = TeX("$P(S^*=s^*|S = s)$"))
+points(x = indices_prevA, y = ZEROS_A, col = "orange")
+```
+
+```{r echo = TRUE}
+table_prev_Mod_A_DF = as.data.frame(table_prev_Mod_A, stringsAsFactors = F)
+supp_prev_Mod_A = as.numeric(table_prev_Mod_A_DF$Prev_Mod_A)
+
+Best_pred_ponct_modA = sum(supp_prev_Mod_A*table_prev_Mod_A_DF$Freq)
+```
+
+Pour le modèle A on a $\hat{S^*} =$ `r Best_pred_ponct_modA`.
+
+# Comparaison
+
+```{r Comparaison des 3 lois prédictives avec leurs régions HPD}
+plot(table_prev_Mod_A, col = alpha("darkgreen", 0.6), ylim = c(0,0.16),
+     xlab = TeX("$s^*$"),
+     ylab = TeX("$P(S^*=s^*|S = s)$"))
+lines(table_prev_Mod_B, col = alpha("red", 0.6))
+lines(table_prev_Mod_C, col = alpha("purple", 0.6))
+
+points(x = indices_prevA, y = ZEROS_A, col = "darkgreen", pch = 16, cex = 1.4)
+points(x = indices_prevB, y = ZEROS_B, col = "red", pch = 16, cex = 1)
+points(x = indices_prevC, y = ZEROS_C, col = "purple", pch = 16, cex = 0.6)
+
+
+legend(10.5, 0.16,legend = c("Loi prédictive Modèle A","Loi prédictive Modèle B","Loi prédictive Modèle C"), fill = c("darkgreen", "red","purple"), box.lty = 2, text.font = 1)
+
+
+```
+
+Les régions HPD de la loi prédictive, pour ces différents modèles, sont représentées par des cercles, de tailles différentes pour la lisibilité, au niveau de l'axe des abscisses. On remarque donc que la région HPD de niveau au moins 95% est identique pour les 3 modèles. 
+
+On rappelle les valeurs des différents prédicteurs ponctuels :\
+Modèle A : $\hat{S^*} =$ `r Best_pred_ponct_modA` \
+Modèle B : $\hat{S^*} =$ `r Best_pred_ponct_modB` \
+Modèle C : $\hat{S^*} =$ `r Best_pred_ponct_modC` \
+
+Ces prédicteurs sont quasiment égaux pour les modèles A et B. Ces deux modèles nous prédisent donc environ $7.6$ élèves qui dorment plus de 8 heures parmi un groupe de 20. Le modèle C quant à lui donne une prévision d'environ $8.2$ élèves.
+
+## Commentaires des résultats
+
+On a des prédictions identiques pour les 2 premiers modèles, tandis que le modèle C donne une prévision légèrement plus élevée.
+Dans le cadre des lois prédictives il est difficile de déterminer le modèle le plus intéressant tant les 3 nous donnent des résultats similaires.
+
+# Conclusion
+
+Du fait des différents résultats sur les facteurs de Bayes ainsi que les régions HPD pour les lois a posteriori, et une absence de démarcation de l'un des modèles pour les lois prédictives, je privilégierais le modèle B pour le problème étudié.
