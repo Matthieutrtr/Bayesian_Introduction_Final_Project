@@ -5,7 +5,7 @@ You can find the complete subject on the "Final_Project_Subject.pdf" document.
 
 ## Comparaison of 3 models
 
-2 envisaged priors on the parameter $p \in ]0,1[$
+2 envisaged priors on the parameter $p \in ]0,1[$ and one uninformative prior
 
 - Model A : discrete law defined by
   i | $b_i$ | $\mathbb{P}(p = b_i)$ 
@@ -16,5 +16,8 @@ You can find the complete subject on the "Final_Project_Subject.pdf" document.
    4  | 0.35  | 0.25                 
    5  | 0.45  | 0.16                 
   6  | 0.55  | 0.07                 
-   7  | 0.65  | 0.03                 
+   7  | 0.65  | 0.03
+
+- Model B : Beta law with parameters $a = 3.4$ and $b = 7.4$
+- Model C : Uninformative Jeffrey's law
                                    
